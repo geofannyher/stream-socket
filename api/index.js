@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000", // Change this to your client's origin
+    origin: "https://demo-streamnew.vercel.app/", // Change this to your client's origin
     methods: ["GET", "POST"],
     allowedHeaders: ["my-custom-header"],
     credentials: true,
@@ -22,9 +22,9 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   console.log("a user connected");
 
-  socket.on("send_message", ({ audio_url, video_url }) => {
-    console.log(audio_url, video_url);
-    io.emit("receive_message", { audio_url, video_url });
+  socket.on("send_message", ({ audio_url, time_start, time_end }) => {
+    console.log(audio_url, time_start, time_end);
+    io.emit("receive_message", { audio_url, time_start, time_end });
   });
 
   socket.on("disconnect", () => {
