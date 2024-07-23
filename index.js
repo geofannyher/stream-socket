@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "https://demo-streamnew.vercel.app/", // Change this to your client's origin
+    origin: "https://demo-streamnew.vercel.app", // Change this to your client's origin
     methods: ["GET", "POST"],
     allowedHeaders: ["my-custom-header"],
     credentials: true,
