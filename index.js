@@ -70,7 +70,7 @@ const processQueue = async () => {
   if (data.length > 0) {
     const queueItem = data[0];
     const { id, text, time_start, time_end } = queueItem;
-    const nextJsApiUrl = "http://localhost:3000/api/audio";
+    const nextJsApiUrl = "https://demo-streamnew.vercel.app/api/audio";
     try {
       const response = await axios.post(
         nextJsApiUrl,
