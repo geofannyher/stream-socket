@@ -5,13 +5,21 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "index.js"
+    "start": "nodemon index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.44.4",
+    "axios": "^1.7.2",
+    "cloudinary": "^2.3.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "form-data": "^4.0.0",
+    "fs": "^0.0.1-security",
+    "i": "^0.3.7",
+    "npm": "^10.8.2",
+    "path": "^0.12.7",
     "socket.io": "^4.7.5"
   }
 }
