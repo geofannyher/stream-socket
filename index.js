@@ -2,17 +2,17 @@ const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
 const { createClient } = require("@supabase/supabase-js");
-const { RealtimeClient } = require("@supabase/realtime-js");
 const axios = require("axios");
 const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const fs = require("fs");
+const dataRandom = require("./dataLink");
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    // origin: "http://localhost:3000",
-    origin: "https://demo-streamnew.vercel.app",
+    origin: "http://localhost:3000",
+    // origin: "https://demo-streamnew.vercel.app",
     methods: ["GET", "POST"],
     allowedHeaders: ["my-custom-header"],
     credentials: true,
@@ -39,7 +39,6 @@ app.get("/", (req, res) => {
 
 io.on("connection", (socket) => {
   console.log("a user connected");
-
   processQueue();
 
   socket.on("send_message", async ({ audio_url }) => {
@@ -67,32 +66,22 @@ const processQueue = async () => {
     console.error("Error fetching data from Supabase:", error);
     return;
   }
+  console.log(data);
   if (data.length > 0) {
     const queueItem = data[0];
-    const { id, text, time_start, time_end } = queueItem;
-    const nextJsApiUrl = "https://demo-streamnew.vercel.app/api/audio";
-    try {
-      const response = await axios.post(
-        nextJsApiUrl,
-        { text },
-        { responseType: "arraybuffer" }
-      );
+    const { id, text, time_start, time_end, queue_num } = queueItem;
 
-      // Tentukan lokasi file sementara
-      const filePath = path.join(__dirname, "output.mp3");
-      fs.writeFileSync(filePath, response.data);
+    if (text === "ready") {
+      const randomVieoUrl =
+        "https://res.cloudinary.com/dp8ita8x5/video/upload/v1722247337/npdp8uckup8kmvmirenw.mp4";
 
-      const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
-        resource_type: "auto",
-        folder: "audio_files",
-        public_id: path.parse(filePath).name,
+      io.emit("receive_message", {
+        video_url: randomVieoUrl,
+        audioUrl: null,
+        time_start,
+        time_end,
       });
-
-      const audioUrl = cloudinaryResponse.secure_url;
-
-      io.emit("receive_message", { audio_url: audioUrl, time_start, time_end });
-
-      const { data: deletedData, error: deleteError } = await supabase
+      const { error: deleteError } = await supabase
         .from("queueTable")
         .delete()
         .eq("id", id);
@@ -102,8 +91,46 @@ const processQueue = async () => {
       }
 
       console.log("Data processed and deleted successfully");
-    } catch (error) {
-      console.error("Error uploading audio file to Cloudinary:", error);
+    } else {
+      const nextJsApiUrl = "http://localhost:3000/api/audio";
+      try {
+        const response = await axios.post(
+          nextJsApiUrl,
+          { text },
+          { responseType: "arraybuffer" }
+        );
+
+        // Tentukan lokasi file sementara
+        const filePath = path.join(__dirname, "output.mp3");
+        fs.writeFileSync(filePath, response.data);
+
+        const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
+          resource_type: "auto",
+          folder: "audio_files",
+          public_id: path.parse(filePath).name,
+        });
+
+        const audioUrl = cloudinaryResponse.secure_url;
+
+        io.emit("receive_message", {
+          audio_url: audioUrl,
+          time_start,
+          time_end,
+        });
+
+        const { error: deleteError } = await supabase
+          .from("queueTable")
+          .delete()
+          .eq("id", id);
+
+        if (deleteError) {
+          console.error("Error deleting data from Supabase:", deleteError);
+        }
+
+        console.log("Data processed and deleted successfully");
+      } catch (error) {
+        console.error("Error uploading audio file to Cloudinary:", error);
+      }
     }
   } else {
     console.log("No data in queueTable");
