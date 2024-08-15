@@ -92,26 +92,28 @@ const processQueue = async () => {
     const { id, text, time_start, time_end, queue_num } = queueItem;
 
     if (text === "ready") {
-      const timeData = [
-        {
-          time_start_video: 80,
-          time_end_video: 90,
-        },
-        {
-          time_start_video: 100,
-          time_end_video: 120,
-        },
-      ];
+      //   const timeData = [
+      //     {
+      //       time_start_video: 80,
+      //       time_end_video: 90,
+      //     },
+      //     {
+      //       time_start_video: 100,
+      //       time_end_video: 120,
+      //     },
+      //   ];
 
-      const randomIndex = Math.floor(Math.random() * timeData.length);
-      const { time_end_video, time_start_video } = timeData[randomIndex];
+      //   const randomIndex = Math.floor(Math.random() * timeData.length);
+      //   const { time_end_video, time_start_video } = timeData[randomIndex];
+      console.log(time_start, time_end);
       io.emit("receive_message", {
         audioUrl: null,
-        time_start: time_start_video,
-        time_end: time_end_video,
+        time_start: Number(time_start),
+        time_end: Number(time_end),
       });
 
       await deleteQueueItem(id); // Hapus item setelah diproses
+      isProcessing = false;
     } else {
       try {
         // const nextJsApiUrl = "http://localhost:3000/api/audio";
@@ -129,6 +131,7 @@ const processQueue = async () => {
           public_id: path.parse(filePath).name,
         });
         const audioUrl = cloudinaryResponse.secure_url;
+        console.log(time_start, time_end, "ini teks");
 
         io.emit("receive_message", {
           audio_url: audioUrl,
