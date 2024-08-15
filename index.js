@@ -10,8 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    // origin: "http://localhost:3000",
-    origin: "https://demo-streamnew.vercel.app",
+    origin: "http://localhost:3000",
     methods: ["GET", "POST"],
     allowedHeaders: ["my-custom-header"],
     credentials: true,
@@ -36,8 +35,10 @@ app.use(express.static("public"));
 app.get("/", (req, res) => {
   res.send("Server is running");
 });
-let isAudioPlaying = false; // Flag untuk melacak status audio
 
+let isProcessing = false; // Flag untuk melacak status pemrosesan
+
+// Mendeteksi perubahan pada Supabase
 supabase
   .channel("schema-db-changes")
   .on(
@@ -46,19 +47,21 @@ supabase
       event: "INSERT",
       schema: "public",
     },
-    (payload) => {
-      console.log(payload);
-      processQueue();
+    () => {
+      if (!isProcessing) {
+        processQueue();
+      }
     }
   )
   .subscribe();
 
+console.log("status", isProcessing);
 io.on("connection", (socket) => {
   console.log("a user connected");
 
   socket.on("audio_finished", () => {
-    isAudioPlaying = false;
-    processQueue();
+    isProcessing = false; // Tandai bahwa audio telah selesai diputar
+    processQueue(); // Lanjutkan pemrosesan antrian
   });
 
   socket.on("disconnect", () => {
@@ -67,72 +70,55 @@ io.on("connection", (socket) => {
 });
 
 const processQueue = async () => {
-  if (isAudioPlaying) {
-    console.log("Audio sedang diputar, menunggu hingga selesai...");
-    return;
+  if (isProcessing) {
+    console.log("masih proses, tunggu sebentar..."); // Jangan proses jika ada pemrosesan yang sedang berjalan
   }
-  // Ambil data pertama dari antrian
+
+  isProcessing = true; // Tandai bahwa pemrosesan sedang berjalan
+
   const { data, error } = await supabase
     .from("queueTable")
     .select("*")
     .order("id", { ascending: true })
-    .limit(1);
+    .limit(1); // Ambil data pertama dari antrian
   if (error) {
     console.error("Error fetching data from Supabase:", error);
+    isProcessing = false; // Reset flag jika terjadi kesalahan
     return;
   }
   if (data.length > 0) {
     const queueItem = data[0];
     const { id, text, time_start, time_end, queue_num } = queueItem;
-    if (text === "ready") {
-      const videoLinks = {
-        q: [
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1722247337/npdp8uckup8kmvmirenw.mp4",
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1718191923/ykws3r5kce7gh7huvl00.mp4",
-        ],
-        w: [
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1718247858/mlfrh9zx2jq5sg1ypb5m.mp4",
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1717599946/re63hcu3f2mvalhepxou.mp4",
-        ],
-        e: [
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1718247858/mlfrh9zx2jq5sg1ypb5m.mp4",
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1717599946/re63hcu3f2mvalhepxou.mp4",
-        ],
-        r: [
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1718247858/mlfrh9zx2jq5sg1ypb5m.mp4",
-          "https://res.cloudinary.com/dp8ita8x5/video/upload/v1717599946/re63hcu3f2mvalhepxou.mp4",
-        ],
-      };
-      // Inisialisasi randomVieoUrl dengan default kosong
-      const randomIndex = Math.floor(
-        Math.random() * videoLinks[queue_num].length
-      );
 
+    if (text === "ready") {
+      const timeData = [
+        {
+          time_start_video: 80,
+          time_end_video: 90,
+        },
+        {
+          time_start_video: 100,
+          time_end_video: 120,
+        },
+      ];
+
+      const randomIndex = Math.floor(Math.random() * timeData.length);
+      const { time_end_video, time_start_video } = timeData[randomIndex];
       io.emit("receive_message", {
-        video_url: videoLinks[queue_num][randomIndex],
         audioUrl: null,
-        time_start,
-        time_end,
+        time_start: time_start_video,
+        time_end: time_end_video,
       });
-      const { error: deleteError } = await supabase
-        .from("queueTable")
-        .delete()
-        .eq("id", id);
-      if (deleteError) {
-        console.error("Error deleting data from Supabase:", deleteError);
-      }
-      isAudioPlaying = true;
-      console.log("Data processed and deleted successfully");
+
+      await deleteQueueItem(id); // Hapus item setelah diproses
     } else {
-      // const nextJsApiUrl = "http://localhost:3000/api/audio";
-      const nextJsApiUrl = "https://demo-streamnew.vercel.app/api/audio";
       try {
+        const nextJsApiUrl = "http://localhost:3000/api/audio";
         const response = await axios.post(
           nextJsApiUrl,
           { text },
           { responseType: "arraybuffer" }
         );
-        // Tentukan lokasi file sementara
         const filePath = path.join(__dirname, "output.mp3");
         fs.writeFileSync(filePath, response.data);
         const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
@@ -141,27 +127,34 @@ const processQueue = async () => {
           public_id: path.parse(filePath).name,
         });
         const audioUrl = cloudinaryResponse.secure_url;
+
         io.emit("receive_message", {
           audio_url: audioUrl,
           time_start,
           time_end,
         });
-        console.log(audioUrl, time_start, time_end);
-        const { error: deleteError } = await supabase
-          .from("queueTable")
-          .delete()
-          .eq("id", id);
-        if (deleteError) {
-          console.error("Error deleting data from Supabase:", deleteError);
-        }
-        console.log("Data processed and deleted successfully");
+
+        await deleteQueueItem(id); // Hapus item setelah diproses
       } catch (error) {
         console.error("Error uploading audio file to Cloudinary:", error);
       }
     }
   } else {
     console.log("No data in queueTable");
+    isProcessing = false; // Reset flag jika tidak ada data
   }
+};
+
+// Fungsi untuk menghapus item dari queueTable
+const deleteQueueItem = async (id) => {
+  const { error: deleteError } = await supabase
+    .from("queueTable")
+    .delete()
+    .eq("id", id);
+  if (deleteError) {
+    console.error("Error deleting data from Supabase:", deleteError);
+  }
+  console.log("Data processed and deleted successfully");
 };
 
 server.listen(5000, () => {
