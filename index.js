@@ -19,9 +19,9 @@ const io = socketIo(server, {
 });
 
 cloudinary.config({
-  cloud_name: "dp8ita8x5",
-  api_key: "198973278215278",
-  api_secret: "ivPD6juN2AkJkTOWh-kyRDBxKsw",
+  cloud_name: "dcd1jeldi",
+  api_key: "677169959341991",
+  api_secret: "9sGegD3sMGpuR9_mi1NFlTdJrTI",
 });
 
 // Supabase setup
@@ -150,6 +150,7 @@ const processQueue = async () => {
           time_start,
           time_end,
         });
+        console.log(audioUrl, time_start, time_end);
         const { error: deleteError } = await supabase
           .from("queueTable")
           .delete()
