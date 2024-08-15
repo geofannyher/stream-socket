@@ -10,7 +10,8 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000",
+    // origin: "http://localhost:3000",
+    origin: "https://demo-streamnew.vercel.app/",
     methods: ["GET", "POST"],
     allowedHeaders: ["my-custom-header"],
     credentials: true,
@@ -113,7 +114,8 @@ const processQueue = async () => {
       await deleteQueueItem(id); // Hapus item setelah diproses
     } else {
       try {
-        const nextJsApiUrl = "http://localhost:3000/api/audio";
+        // const nextJsApiUrl = "http://localhost:3000/api/audio";
+        const nextJsApiUrl = "https://demo-streamnew.vercel.app/api/audio";
         const response = await axios.post(
           nextJsApiUrl,
           { text },
