@@ -113,6 +113,7 @@ const processQueue = async () => {
       });
 
       await deleteQueueItem(id); // Hapus item setelah diproses
+      isProcessing = false;
     } else {
       try {
         // const nextJsApiUrl = "http://localhost:3000/api/audio";
