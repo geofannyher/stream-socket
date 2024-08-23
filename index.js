@@ -72,7 +72,8 @@ io.on("connection", (socket) => {
 
 const processQueue = async () => {
   if (isProcessing) {
-    console.log("masih proses, tunggu sebentar..."); // Jangan proses jika ada pemrosesan yang sedang berjalan
+    console.log("Audio sedang diputar, menunggu sampai selesai..."); // Jangan proses jika ada pemrosesan yang sedang berjalan
+    return; // Keluar dari fungsi untuk menunggu sampai audio selesai
   }
 
   isProcessing = true; // Tandai bahwa pemrosesan sedang berjalan
@@ -91,7 +92,7 @@ const processQueue = async () => {
     const queueItem = data[0];
     const { id, text, time_start, time_end } = queueItem;
     if (text === "ready") {
-      console.log("kirim");
+      console.log("Mengirim audio...");
       io.emit("receive_message", {
         audio_url: "only",
         time_start: Number(time_start),
@@ -99,7 +100,6 @@ const processQueue = async () => {
       });
 
       await deleteQueueItem(id); // Hapus item setelah diproses
-      isProcessing = false;
     } else {
       try {
         // const nextJsApiUrl = "http://localhost:3000/api/audio";
@@ -130,6 +130,7 @@ const processQueue = async () => {
         console.error("Error uploading audio file to Cloudinary:", error);
       }
     }
+    // Setelah selesai mengirim audio, tunggu sinyal `audio_finished` dari klien sebelum melanjutkan.
   } else {
     console.log("No data in queueTable");
     isProcessing = false; // Reset flag jika tidak ada data
