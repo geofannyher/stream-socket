@@ -89,25 +89,11 @@ const processQueue = async () => {
   }
   if (data.length > 0) {
     const queueItem = data[0];
-    const { id, text, time_start, time_end, queue_num } = queueItem;
-
+    const { id, text, time_start, time_end } = queueItem;
     if (text === "ready") {
-      //   const timeData = [
-      //     {
-      //       time_start_video: 80,
-      //       time_end_video: 90,
-      //     },
-      //     {
-      //       time_start_video: 100,
-      //       time_end_video: 120,
-      //     },
-      //   ];
-
-      //   const randomIndex = Math.floor(Math.random() * timeData.length);
-      //   const { time_end_video, time_start_video } = timeData[randomIndex];
-      console.log(time_start, time_end);
+      console.log("kirim");
       io.emit("receive_message", {
-        audioUrl: null,
+        audio_url: "only",
         time_start: Number(time_start),
         time_end: Number(time_end),
       });
