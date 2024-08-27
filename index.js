@@ -37,6 +37,42 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
+const getAudio = async ({ text, id_audio }) => {
+  try {
+    // Request ke ElevenLabs API
+    const result = await axios.post(
+      `https://api.elevenlabs.io/v1/text-to-speech/${id_audio}`,
+      {
+        text: text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.95,
+          style: 0,
+          use_speaker_boost: true,
+        },
+      },
+      {
+        headers: {
+          accept: "audio/mpeg",
+          "xi-api-key": "YOUR_ELEVENLABS_API_KEY",
+          "Content-Type": "application/json",
+        },
+        responseType: "arraybuffer",
+      }
+    );
+
+    // Menyimpan audio ke file lokal
+    const audioBuffer = Buffer.from(result.data, "binary");
+    const filePath = path.join(__dirname, "output.mp3");
+    fs.writeFileSync(filePath, audioBuffer);
+    return 200;
+  } catch (error) {
+    console.error("Error processing audio:", error);
+    return "Failed to process audio";
+  }
+};
+
 let isProcessing = false; // Flag untuk melacak status pemrosesan
 
 // Mendeteksi perubahan pada Supabase
@@ -103,13 +139,11 @@ const processQueue = async () => {
       await deleteQueueItem(id);
     } else {
       try {
-        // const nextJsApiUrl = "http://localhost:3000/api/audio";
-        const nextJsApiUrl = "https://demo-streamnew.vercel.app/api/audio";
-        const response = await axios.post(
-          nextJsApiUrl,
-          { text, id_audio },
-          { responseType: "arraybuffer" }
-        );
+        const res = await getAudio({ text, id_audio });
+        if (res !== 200) {
+          console.log(res);
+          return;
+        }
         const filePath = path.join(__dirname, "output.mp3");
         fs.writeFileSync(filePath, response.data);
         const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
