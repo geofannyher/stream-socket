@@ -83,30 +83,36 @@ const processQueue = async () => {
     .select("*")
     .order("id", { ascending: true })
     .limit(1); // Ambil data pertama dari antrian
+
   if (error) {
     console.error("Error fetching data from Supabase:", error);
     isProcessing = false; // Reset flag jika terjadi kesalahan
     return;
   }
+  console.log(data);
   if (data.length > 0) {
     const queueItem = data[0];
-    const { id, text, time_start, time_end } = queueItem;
+    const { id, text, time_start, time_end, id_audio } = queueItem;
     if (text === "ready") {
       console.log("Mengirim audio...");
-      io.emit("receive_message", {
-        audio_url: "only",
-        time_start: Number(time_start),
-        time_end: Number(time_end),
-      });
-
-      await deleteQueueItem(id); // Hapus item setelah diproses
+      try {
+        io.emit("receive_message", {
+          audio_url: "only",
+          time_start: Number(time_start),
+          time_end: Number(time_end),
+        });
+      } catch (error) {
+        console.log(error);
+      } finally {
+        await deleteQueueItem(id);
+      }
     } else {
       try {
         // const nextJsApiUrl = "http://localhost:3000/api/audio";
         const nextJsApiUrl = "https://demo-streamnew.vercel.app/api/audio";
         const response = await axios.post(
           nextJsApiUrl,
-          { text },
+          { text, id_audio },
           { responseType: "arraybuffer" }
         );
         const filePath = path.join(__dirname, "output.mp3");
@@ -124,10 +130,10 @@ const processQueue = async () => {
           time_start,
           time_end,
         });
-
-        await deleteQueueItem(id); // Hapus item setelah diproses
       } catch (error) {
         console.error("Error uploading audio file to Cloudinary:", error);
+      } finally {
+        await deleteQueueItem(id);
       }
     }
     // Setelah selesai mengirim audio, tunggu sinyal `audio_finished` dari klien sebelum melanjutkan.
@@ -142,7 +148,8 @@ const deleteQueueItem = async (id) => {
   const { error: deleteError } = await supabase
     .from("queueTable")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .limit(1);
   if (deleteError) {
     console.error("Error deleting data from Supabase:", deleteError);
   }
