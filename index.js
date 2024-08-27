@@ -66,7 +66,14 @@ const getAudio = async ({ text, id_audio }) => {
     const audioBuffer = Buffer.from(result.data, "binary");
     const filePath = path.join(__dirname, "output.mp3");
     fs.writeFileSync(filePath, audioBuffer);
-    return 200;
+
+    const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
+      resource_type: "auto",
+      folder: "audio_files",
+      public_id: path.parse(filePath).name,
+    });
+
+    return { status: 200, url: cloudinaryResponse.secure_url };
   } catch (error) {
     console.error("Error processing audio:", error);
     return "Failed to process audio";
@@ -140,22 +147,22 @@ const processQueue = async () => {
     } else {
       try {
         const res = await getAudio({ text, id_audio });
-        if (res !== 200) {
+        if (res?.status !== 200) {
           console.log(res);
           return;
         }
-        const filePath = path.join(__dirname, "output.mp3");
-        fs.writeFileSync(filePath, response.data);
-        const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
-          resource_type: "auto",
-          folder: "audio_files",
-          public_id: path.parse(filePath).name,
-        });
-        const audioUrl = cloudinaryResponse.secure_url;
+        // const filePath = path.join(__dirname, "output.mp3");
+        // fs.writeFileSync(filePath, response.data);
+        // const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
+        //   resource_type: "auto",
+        //   folder: "audio_files",
+        //   public_id: path.parse(filePath).name,
+        // });
+        // const audioUrl = cloudinaryResponse.secure_url;
         console.log(time_start, time_end, "ini teks");
 
         io.emit("receive_message", {
-          audio_url: audioUrl,
+          audio_url: res?.url,
           time_start,
           time_end,
         });
