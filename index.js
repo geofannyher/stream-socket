@@ -55,7 +55,7 @@ const getAudio = async ({ text, id_audio }) => {
       {
         headers: {
           accept: "audio/mpeg",
-          "xi-api-key": "YOUR_ELEVENLABS_API_KEY",
+          "xi-api-key": "17dd999e77442c6c7e1e7733e6dd7af2",
           "Content-Type": "application/json",
         },
         responseType: "arraybuffer",
