@@ -137,12 +137,13 @@ const processQueue = async () => {
     const queueItem = data[0];
     const { id, text, time_start, time_end, id_audio } = queueItem;
     if (text === "ready") {
-      console.log("Mengirim audio...");
+      console.log("Mengirim hanya durasi...");
       io.emit("receive_message", {
         audio_url: "only",
         time_start: Number(time_start),
         time_end: Number(time_end),
       });
+      console.log("durasi terkirim");
       await deleteQueueItem(id);
     } else {
       try {
@@ -151,21 +152,17 @@ const processQueue = async () => {
           console.log(res);
           return;
         }
-        // const filePath = path.join(__dirname, "output.mp3");
-        // fs.writeFileSync(filePath, response.data);
-        // const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
-        //   resource_type: "auto",
-        //   folder: "audio_files",
-        //   public_id: path.parse(filePath).name,
-        // });
-        // const audioUrl = cloudinaryResponse.secure_url;
-        console.log(time_start, time_end, "ini teks");
+
+        console.log(res?.url, "url teks");
+        console.log(time_start, time_end, "ini waktu teks dikirim");
 
         io.emit("receive_message", {
           audio_url: res?.url,
           time_start,
           time_end,
         });
+        console.log("url audio terkirim");
+
         await deleteQueueItem(id);
       } catch (error) {
         console.error("Error uploading audio file to Cloudinary:", error);
