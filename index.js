@@ -95,17 +95,12 @@ const processQueue = async () => {
     const { id, text, time_start, time_end, id_audio } = queueItem;
     if (text === "ready") {
       console.log("Mengirim audio...");
-      try {
-        io.emit("receive_message", {
-          audio_url: "only",
-          time_start: Number(time_start),
-          time_end: Number(time_end),
-        });
-      } catch (error) {
-        console.log(error);
-      } finally {
-        await deleteQueueItem(id);
-      }
+      io.emit("receive_message", {
+        audio_url: "only",
+        time_start: Number(time_start),
+        time_end: Number(time_end),
+      });
+      await deleteQueueItem(id);
     } else {
       try {
         // const nextJsApiUrl = "http://localhost:3000/api/audio";
@@ -130,10 +125,9 @@ const processQueue = async () => {
           time_start,
           time_end,
         });
+        await deleteQueueItem(id);
       } catch (error) {
         console.error("Error uploading audio file to Cloudinary:", error);
-      } finally {
-        await deleteQueueItem(id);
       }
     }
     // Setelah selesai mengirim audio, tunggu sinyal `audio_finished` dari klien sebelum melanjutkan.
