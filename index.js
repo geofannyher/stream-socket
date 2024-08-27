@@ -142,8 +142,7 @@ const deleteQueueItem = async (id) => {
   const { error: deleteError } = await supabase
     .from("queueTable")
     .delete()
-    .eq("id", id)
-    .limit(1);
+    .eq("id", id);
   if (deleteError) {
     console.error("Error deleting data from Supabase:", deleteError);
   }
