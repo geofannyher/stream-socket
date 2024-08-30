@@ -40,8 +40,8 @@ const getAudio = async ({ text, id_audio }) => {
   try {
     // Request ke ElevenLabs API
     const result = await axios.post(
-      // `https://api.elevenlabs.io/v1/text-to-speech/${id_audio}`,
-      `https://api.elevenlabs.io/v1/text-to-speech/9PT7w7JPpD5X2qcOmOEb`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${id_audio}`,
+      // `https://api.elevenlabs.io/v1/text-to-speech/9PT7w7JPpD5X2qcOmOEb`,
       {
         text: text,
         model_id: "eleven_multilingual_v2",
