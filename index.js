@@ -50,7 +50,7 @@ const getAudio = async ({ text, id_audio }) => {
         text: text,
         model_id:
           id_audio === "IMJSFL2vyX1d82ZUwle7"
-            ? "eleven_turbo_v2"
+            ? "eleven_turbo_v2_5"
             : "eleven_multilingual_v2",
         voice_settings: {
           stability: 0.5,
