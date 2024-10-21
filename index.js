@@ -128,11 +128,7 @@ const processQueue = async () => {
 
   isProcessing = true; // Tandai bahwa pemrosesan sedang berjalan
 
-  const { data, error } = await supabase
-    .from("queueTable")
-    .select("*")
-    .order("id", { ascending: true })
-    .limit(1); // Ambil data pertama dari antrian
+  const { data, error } = await supabase.from("queueTable").select("*");
 
   if (error) {
     console.error("Error fetching data from Supabase:", error);
@@ -141,7 +137,9 @@ const processQueue = async () => {
   }
   console.log(data);
   if (data.length > 0) {
-    const queueItem = data[0];
+    console.log(data, "data data ");
+    const dataSort = data.sort((a, b) => a.position - b.position);
+    const queueItem = dataSort[0];
     const { id, text, time_start, time_end, id_audio } = queueItem;
     if (text === "ready") {
       console.log("Mengirim hanya durasi...");
@@ -154,17 +152,17 @@ const processQueue = async () => {
       await deleteQueueItem(id);
     } else {
       try {
-        const res = await getAudio({ text, id_audio });
-        if (res?.status !== 200) {
-          console.log(res);
-          return;
-        }
+        const res = await axios.post("http://localhost:3000/api/audio", {
+          // const res = await axios.post("demostream.mainavatara.com/api/audio", {
+          text,
+          id_audio,
+        });
 
-        console.log(res?.url, "url teks");
+        console.log(res?.data?.secure_url, "url teks");
         console.log(time_start, time_end, "ini waktu teks dikirim");
 
         io.emit("receive_message", {
-          audio_url: res?.url,
+          audio_url: res?.data?.secure_url,
           time_start,
           time_end,
         });
