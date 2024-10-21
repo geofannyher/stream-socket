@@ -152,17 +152,18 @@ const processQueue = async () => {
       await deleteQueueItem(id);
     } else {
       try {
-        const res = await axios.post("http://localhost:3000/api/audio", {
-          // const res = await axios.post("demostream.mainavatara.com/api/audio", {
+        const res = await getAudio({
           text,
           id_audio,
         });
-
+        // const res = await axios.post("demostream.mainavatara.com/api/audio", {
+        console.log(res);
         console.log(res?.data?.secure_url, "url teks");
         console.log(time_start, time_end, "ini waktu teks dikirim");
 
         io.emit("receive_message", {
-          audio_url: res?.data?.secure_url,
+          // audio_url: res?.data?.secure_url,
+          audio_url: res?.url,
           time_start,
           time_end,
         });
