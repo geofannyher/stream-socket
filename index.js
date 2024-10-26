@@ -87,29 +87,18 @@ const getAudio = async ({ text, id_audio }) => {
     return "Failed to process audio";
   }
 };
+const isProcessingMap = {};
 
-let isProcessing = false; // Flag untuk melacak status pemrosesan
-
-// Mendeteksi perubahan pada Supabase
-supabase
-  .channel("schema-db-changes")
-  .on(
-    "postgres_changes",
-    {
-      event: "INSERT",
-      schema: "public",
-    },
-    () => {
-      if (!isProcessing) {
-        processQueue();
-      }
-    }
-  )
-  .subscribe();
-
-console.log("status", isProcessing);
 io.on("connection", (socket) => {
-  console.log("a user connected", socket.id);
+  console.log("User connected", socket.id);
+
+  socket.on("authenticate", (userId) => {
+    console.log("User authenticated with ID:", userId);
+    socket.userId = userId;
+    socket.join(userId);
+    processQueue(userId);
+  });
+
   let tiktokLiveConnection;
   // Listen to incoming TikTok username
   socket.on("startStream", (username) => {
@@ -164,30 +153,32 @@ io.on("connection", (socket) => {
   });
 
   socket.on("audio_finished", () => {
-    isProcessing = false; // Tandai bahwa audio telah selesai diputar
-    processQueue(); // Lanjutkan pemrosesan antrian
+    isProcessingMap[socket.userId] = false; // Tandai bahwa audio telah selesai diputar
+    processQueue(socket.userId); // Lanjutkan pemrosesan antrian
   });
-
-  // socket.on("disconnect", () => {
-  //   console.log("user disconnected");
-  // });
 });
 
-const processQueue = async () => {
-  if (isProcessing) {
-    console.log("Audio sedang diputar, menunggu sampai selesai..."); // Jangan proses jika ada pemrosesan yang sedang berjalan
-    return; // Keluar dari fungsi untuk menunggu sampai audio selesai
+const processQueue = async (userId) => {
+  if (isProcessingMap[userId]) {
+    console.log(
+      `Audio sedang diputar untuk user ${userId}, menunggu sampai selesai...`
+    );
+    return;
   }
 
-  isProcessing = true; // Tandai bahwa pemrosesan sedang berjalan
+  isProcessingMap[userId] = true;
 
-  const { data, error } = await supabase.from("queueTable").select("*");
+  const { data, error } = await supabase
+    .from("queueTable")
+    .select("*")
+    .eq("id_user", userId);
 
   if (error) {
     console.error("Error fetching data from Supabase:", error);
-    isProcessing = false; // Reset flag jika terjadi kesalahan
+    isProcessingMap[userId] = false;
     return;
   }
+
   console.log(data);
   if (data.length > 0) {
     console.log(data, "data data ");
@@ -196,12 +187,12 @@ const processQueue = async () => {
     const { id, text, time_start, time_end, id_audio } = queueItem;
     if (text === "ready") {
       console.log("Mengirim hanya durasi...");
-      io.emit("receive_message", {
+      io.to(userId).emit("receive_message", {
         audio_url: "only",
         time_start: Number(time_start),
         time_end: Number(time_end),
       });
-      console.log("durasi terkirim");
+      console.log("Durasi terkirim untuk user:", userId);
       await deleteQueueItem(id);
     } else {
       try {
@@ -214,13 +205,13 @@ const processQueue = async () => {
         console.log(res?.data?.secure_url, "url teks");
         console.log(time_start, time_end, "ini waktu teks dikirim");
 
-        io.emit("receive_message", {
+        io.to(userId).emit("receive_message", {
           // audio_url: res?.data?.secure_url,
           audio_url: res?.url,
           time_start,
           time_end,
         });
-        console.log("url audio terkirim");
+        console.log("Durasi terkirim untuk user:", userId);
 
         await deleteQueueItem(id);
       } catch (error) {
@@ -230,7 +221,7 @@ const processQueue = async () => {
     // Setelah selesai mengirim audio, tunggu sinyal `audio_finished` dari klien sebelum melanjutkan.
   } else {
     console.log("No data in queueTable");
-    isProcessing = false; // Reset flag jika tidak ada data
+    isProcessingMap[userId] = false;
   }
 };
 
