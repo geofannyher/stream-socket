@@ -21,6 +21,7 @@
     "nodemon": "^3.1.4",
     "npm": "^10.8.2",
     "path": "^0.12.7",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "tiktok-live-connector": "^1.2.0"
   }
 }

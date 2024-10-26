@@ -4,6 +4,7 @@ const socketIo = require("socket.io");
 const { createClient } = require("@supabase/supabase-js");
 const axios = require("axios");
 const cloudinary = require("cloudinary").v2;
+const { WebcastPushConnection } = require("tiktok-live-connector");
 const path = require("path");
 const fs = require("fs");
 const app = express();
@@ -108,16 +109,68 @@ supabase
 
 console.log("status", isProcessing);
 io.on("connection", (socket) => {
-  console.log("a user connected");
+  console.log("a user connected", socket.id);
+  let tiktokLiveConnection;
+  // Listen to incoming TikTok username
+  socket.on("startStream", (username) => {
+    console.log(`Starting TikTok Live connection for: ${username}`);
+    tiktokLiveConnection = new WebcastPushConnection(username, {
+      enableExtendedGiftInfo: true,
+    });
+
+    // Connect to TikTok live stream
+    tiktokLiveConnection
+      .connect()
+      .then((state) => {
+        console.info(`Connected to roomId ${state.roomId}`);
+        socket.emit("connectionSuccess", `Connected to room ${state.roomId}`);
+      })
+      .catch((err) => {
+        console.error("Failed to connect", err);
+        socket.emit("connectionError", err.message);
+      });
+
+    // Forward comments to the React client
+    tiktokLiveConnection.on("chat", (data) => {
+      socket.emit("comment", {
+        username: data.uniqueId,
+        comment: data.comment,
+      });
+    });
+
+    // Forward gifts to the React client
+    tiktokLiveConnection.on("gift", (data) => {
+      socket.emit("gift", {
+        username: data.uniqueId,
+        gift: data.giftName,
+      });
+    });
+  });
+
+  // Listen to stopStream event
+  socket.on("stopStream", () => {
+    if (tiktokLiveConnection) {
+      tiktokLiveConnection.disconnect();
+      console.log("Disconnected from TikTok Live");
+    }
+  });
+
+  // Disconnect handling
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+    if (tiktokLiveConnection) {
+      tiktokLiveConnection.disconnect();
+    }
+  });
 
   socket.on("audio_finished", () => {
     isProcessing = false; // Tandai bahwa audio telah selesai diputar
     processQueue(); // Lanjutkan pemrosesan antrian
   });
 
-  socket.on("disconnect", () => {
-    console.log("user disconnected");
-  });
+  // socket.on("disconnect", () => {
+  //   console.log("user disconnected");
+  // });
 });
 
 const processQueue = async () => {
