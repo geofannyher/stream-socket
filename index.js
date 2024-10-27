@@ -4,20 +4,16 @@ const socketIo = require("socket.io");
 const { createClient } = require("@supabase/supabase-js");
 const axios = require("axios");
 const cloudinary = require("cloudinary").v2;
-const { WebcastPushConnection } = require("tiktok-live-connector");
 const path = require("path");
 const fs = require("fs");
 const app = express();
 const mp3info = require("mp3-details");
+const tiktokManager = require("./TiktokManager.js");
 const determineOutput = require("./cekAudio.js");
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "https://demo-streamnew.vercel.app",
-    ],
+    origin: "*", // Adjust this to your needs
     methods: ["GET", "POST"],
     allowedHeaders: ["my-custom-header"],
     credentials: true,
@@ -101,62 +97,76 @@ io.on("connection", (socket) => {
     processQueue(userId);
   });
 
-  let tiktokLiveConnection;
   // Listen to incoming TikTok username
-  socket.on("startStream", (username) => {
-    console.log(`Starting TikTok Live connection for: ${username}`);
-    tiktokLiveConnection = new WebcastPushConnection(username, {
-      enableExtendedGiftInfo: true,
-    });
+  socket.on("startStream", async (username) => {
+    try {
+      console.log(`Starting TikTok Live connection for: ${username}`);
 
-    // Connect to TikTok live stream
-    tiktokLiveConnection
-      .connect()
-      .then((state) => {
+      const tiktokLiveConnection = await tiktokManager.connectToLive(
+        username,
+        socket.id
+      );
+
+      // Set up event listeners after successful connection
+      tiktokLiveConnection.on("connected", (state) => {
         console.info(`Connected to roomId ${state.roomId}`);
         socket.emit("connectionSuccess", `Connected to room ${state.roomId}`);
-      })
-      .catch((err) => {
-        console.error("Failed to connect", err);
+      });
+
+      tiktokLiveConnection.on("disconnected", () => {
+        console.log(`Disconnected from ${username}'s livestream`);
+        socket.emit("disconnected", "Live stream connection ended");
+      });
+
+      tiktokLiveConnection.on("error", (err) => {
+        console.error("TikTok Live connection error:", err);
         socket.emit("connectionError", err.message);
       });
 
-    // Forward comments to the React client
-    tiktokLiveConnection.on("chat", (data) => {
-      socket.emit("comment", {
-        username: data.uniqueId,
-        comment: data.comment,
+      // Forward comments to the React client
+      tiktokLiveConnection.on("chat", (data) => {
+        socket.emit("comment", {
+          username: data.uniqueId,
+          comment: data.comment,
+        });
       });
-    });
 
-    // Forward gifts to the React client
-    tiktokLiveConnection.on("gift", (data) => {
-      socket.emit("gift", {
-        username: data.uniqueId,
-        gift: data.giftName,
+      // Forward gifts to the React client
+      tiktokLiveConnection.on("gift", (data) => {
+        socket.emit("gift", {
+          username: data.uniqueId,
+          gift: data.giftName,
+        });
       });
-    });
+
+      // Connect to TikTok live stream
+      await tiktokLiveConnection.connect();
+    } catch (error) {
+      console.error("Failed to start TikTok Live stream:", error);
+      socket.emit("connectionError", error.message);
+    }
   });
 
   // Listen to stopStream event
-  socket.on("stopStream", () => {
-    if (tiktokLiveConnection) {
-      tiktokLiveConnection.disconnect();
-      console.log("Disconnected from TikTok Live");
+  socket.on("stopStream", async () => {
+    try {
+      await tiktokManager.disconnectFromLive(socket.id);
+      socket.emit("streamStopped", "Stream stopped successfully");
+    } catch (error) {
+      console.error("Error stopping stream:", error);
+      socket.emit("streamError", error.message);
     }
   });
 
   // Disconnect handling
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("User disconnected:", socket.id);
-    if (tiktokLiveConnection) {
-      tiktokLiveConnection.disconnect();
-    }
+    await tiktokManager.disconnectFromLive(socket.id);
   });
 
   socket.on("audio_finished", () => {
-    isProcessingMap[socket.userId] = false; // Tandai bahwa audio telah selesai diputar
-    processQueue(socket.userId); // Lanjutkan pemrosesan antrian
+    isProcessingMap[socket.userId] = false;
+    processQueue(socket.userId);
   });
 });
 
