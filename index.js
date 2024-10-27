@@ -8,6 +8,8 @@ const { WebcastPushConnection } = require("tiktok-live-connector");
 const path = require("path");
 const fs = require("fs");
 const app = express();
+const mp3info = require("mp3-details");
+const determineOutput = require("./cekAudio.js");
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
@@ -21,6 +23,7 @@ const io = socketIo(server, {
     credentials: true,
   },
 });
+// app.use(express.json());
 
 cloudinary.config({
   cloud_name: "dcd1jeldi",
@@ -34,14 +37,13 @@ const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdWRncWdldHNzamNsb2dlYWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMxMDIwOTAsImV4cCI6MjAzODY3ODA5MH0.32lHuM9Q_yuFK19HoqhfjX4Urr5xeXy5UVvTdbl8p9o";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-
 app.use(express.static("public"));
-
 app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
-const getAudio = async ({ text, id_audio }) => {
+const getAudio = async ({ text, id_audio, userId }) => {
+  console.log("audio", userId);
   try {
     // Request ke ElevenLabs API
     const result = await axios.post(
@@ -72,7 +74,7 @@ const getAudio = async ({ text, id_audio }) => {
 
     // Menyimpan audio ke file lokal
     const audioBuffer = Buffer.from(result.data, "binary");
-    const filePath = path.join(__dirname, "output.mp3");
+    const filePath = path.join(__dirname, userId + ".mp3");
     fs.writeFileSync(filePath, audioBuffer);
 
     const cloudinaryResponse = await cloudinary.uploader.upload(filePath, {
@@ -179,9 +181,7 @@ const processQueue = async (userId) => {
     return;
   }
 
-  console.log(data);
   if (data.length > 0) {
-    console.log(data, "data data ");
     const dataSort = data.sort((a, b) => a.position - b.position);
     const queueItem = dataSort[0];
     const { id, text, time_start, time_end, id_audio } = queueItem;
@@ -199,17 +199,18 @@ const processQueue = async (userId) => {
         const res = await getAudio({
           text,
           id_audio,
+          userId,
         });
-        // const res = await axios.post("demostream.mainavatara.com/api/audio", {
-        console.log(res);
-        console.log(res?.data?.secure_url, "url teks");
-        console.log(time_start, time_end, "ini waktu teks dikirim");
 
+        // cek durasi audionya dari file .mp3
+        const durationInfo = mp3info.load(userId + ".mp3");
+        const resInfoDuration = determineOutput(durationInfo.duration);
+
+        console.log("url", res?.url, "durasi real", durationInfo.duration);
         io.to(userId).emit("receive_message", {
-          // audio_url: res?.data?.secure_url,
           audio_url: res?.url,
-          time_start,
-          time_end,
+          time_start: resInfoDuration.time_start,
+          time_end: resInfoDuration.time_end,
         });
         console.log("Durasi terkirim untuk user:", userId);
 
@@ -236,6 +237,9 @@ const deleteQueueItem = async (id) => {
   }
   console.log("Data processed and deleted successfully");
 };
+
+// untuk tes apapun
+// app.post("/info-audio", getDuration);
 
 server.listen(5000, () => {
   console.log("Server is running on http://localhost:5000");
